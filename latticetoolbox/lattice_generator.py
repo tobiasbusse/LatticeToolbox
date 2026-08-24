@@ -207,8 +207,10 @@ class Triangular:
 
         c = 0
 
-        torus_vec = [self.t1, self.t2, -self.t1, -self.t2, self.t1 + self.t2, -1 * (self.t1 + self.t2),
-                     self.t1 - self.t2, self.t2 - self.t1]
+        t_base_change = np.linalg.inv(np.column_stack([self.t1, self.t2]))
+
+        # base points of the cells accepted so far, i.e. the coordinates without the base vectors
+        base_points = []
 
         # try n1, n2 such that n1*a1 + n2*a2 is in simulation torus
         for n2 in range(min_n2, max_n2):
@@ -216,20 +218,18 @@ class Triangular:
                 # base point in lattice
                 site_vec = n1 * self.a1 + n2 * self.a2
 
-                # avoid duplicates
-                if len(where_vec_array(self.coordinates, site_vec)) > 0:
-                    continue
-
-                # check other site of the torus
-                duplicates = []
-                for periodic_vec in torus_vec:
-                    if len(where_vec_array(self.coordinates, site_vec + periodic_vec)) > 0:
-                        duplicates.append(1)
-                if len(duplicates) > 0:
-                    continue
+                # skip if an equivalent site is already there. Two sites are equivalent if they
+                # differ by any torus vector, i.e. if the difference has integer coordinates in
+                # the t basis. Comparing against a fixed list of shifts (+-t1, +-t2, ...) is not
+                # enough: the accepted region below is |.| < 1 in both t coordinates, so sites on
+                # opposite edges of it differ by 2*t1 or 2*t2 and were kept as separate sites.
+                if len(base_points) > 0:
+                    shifts = t_base_change @ (site_vec - np.array(base_points)).transpose()
+                    if np.any(np.all(np.isclose(shifts, np.round(shifts)), axis=0)):
+                        continue
 
                 # stay in positive sector in t basis for both sublattice points
-                vec_t_base = np.linalg.inv(np.column_stack([self.t1, self.t2])) @ site_vec
+                vec_t_base = t_base_change @ site_vec
 
                 # assert basis change worked
                 assert (np.isclose(vec_t_base[0] * self.t1 + vec_t_base[1] * self.t2, site_vec).all())
@@ -240,10 +240,15 @@ class Triangular:
                 for c_b, base_vec in enumerate(self.base_vectors):
                     self.coordinates[c + c_b] = site_vec + base_vec
                 c += c_b + 1
+                base_points.append(site_vec)
 
                 # if already enough sites found, assume rest are duplicates
                 if c > self.n - 1:
                     break
+
+            # the break above only leaves the inner loop, so stop the outer one as well
+            if c > self.n - 1:
+                break
 
         if c != self.n:
             print(c, max_n2 * max_n1 * len(self.base_vectors))
@@ -1710,8 +1715,10 @@ class Kagome:
 
         c = 0
 
-        torus_vec = [self.t1, self.t2, -self.t1, -self.t2, self.t1 + self.t2, -1 * (self.t1 + self.t2),
-                     self.t1 - self.t2, self.t2 - self.t1]
+        t_base_change = np.linalg.inv(np.column_stack([self.t1, self.t2]))
+
+        # base points of the cells accepted so far, i.e. the coordinates without the base vectors
+        base_points = []
 
         # try n1, n2 such that n1*a1 + n2*a2 is in simulation torus
         for n2 in range(min_n2, max_n2):
@@ -1719,20 +1726,18 @@ class Kagome:
                 # base point in lattice
                 site_vec = n1 * self.a1 + n2 * self.a2
 
-                # avoid duplicates
-                if len(where_vec_array(self.coordinates, site_vec)) > 0:
-                    continue
-
-                # check other site of the torus
-                duplicates = []
-                for periodic_vec in torus_vec:
-                    if len(where_vec_array(self.coordinates, site_vec + periodic_vec)) > 0:
-                        duplicates.append(1)
-                if len(duplicates) > 0:
-                    continue
+                # skip if an equivalent site is already there. Two sites are equivalent if they
+                # differ by any torus vector, i.e. if the difference has integer coordinates in
+                # the t basis. Comparing against a fixed list of shifts (+-t1, +-t2, ...) is not
+                # enough: the accepted region below is |.| < 1 in both t coordinates, so sites on
+                # opposite edges of it differ by 2*t1 or 2*t2 and were kept as separate sites.
+                if len(base_points) > 0:
+                    shifts = t_base_change @ (site_vec - np.array(base_points)).transpose()
+                    if np.any(np.all(np.isclose(shifts, np.round(shifts)), axis=0)):
+                        continue
 
                 # stay in positive sector in t basis for both sublattice points
-                vec_t_base = np.linalg.inv(np.column_stack([self.t1, self.t2])) @ site_vec
+                vec_t_base = t_base_change @ site_vec
 
                 # assert basis change worked
                 assert (np.isclose(vec_t_base[0] * self.t1 + vec_t_base[1] * self.t2, site_vec).all())
@@ -1743,10 +1748,15 @@ class Kagome:
                 for c_b, base_vec in enumerate(self.base_vectors):
                     self.coordinates[c + c_b] = site_vec + base_vec
                 c += c_b + 1
+                base_points.append(site_vec)
 
                 # if already enough sites found, assume rest are duplicates
                 if c > self.n - 1:
                     break
+
+            # the break above only leaves the inner loop, so stop the outer one as well
+            if c > self.n - 1:
+                break
 
         if c != self.n:
             print(c, max_n2 * max_n1 * len(self.base_vectors))
